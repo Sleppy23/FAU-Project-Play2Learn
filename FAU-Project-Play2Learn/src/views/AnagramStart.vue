@@ -29,7 +29,15 @@ export default {
         },
     },
     methods: {
-        startGame() {},
+        startGame() {
+             if (!this.isValidLength) return;
+            this.$router.push({
+                name: 'AnagramPlay',
+                query: {
+                    length:this.wordLength
+                }
+            });
+        }
     },
 };
 </script>
