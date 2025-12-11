@@ -1,8 +1,32 @@
 <template>
   <div>
     <h1>Anagram Play Page</h1>
+
     <p>Word length: {{ wordLength }}</p>
     <p>Scrambled word: <strong>{{ scrambled }}</strong></p>
+
+    <div style="margin-top: 1.5rem;">
+      <label>
+        Your guess:
+        <input
+          type="text"
+          v-model="playerGuess"
+          placeholder="Type the word here"
+        />
+      </label>
+
+      <button
+        @click="checkGuess"
+        :disabled="!playerGuess.trim()"
+        style="margin-left: 0.5rem;"
+      >
+        Submit
+      </button>
+    </div>
+
+    <p v-if="feedback" style="margin-top: 1rem;">
+      {{ feedback }}
+    </p>
   </div>
 </template>
 
@@ -17,6 +41,8 @@ export default {
         wordLength: null,
         chosenWord: null,
         scrambled: null,
+        playerGuess:'',
+        feedback: '',
     };
   },
 
@@ -68,7 +94,28 @@ created() {
   }
 
   this.scrambled = chars.join('');
-}
+},
+ methods: {
+    checkGuess() {
+      const cleanGuess = this.playerGuess.trim().toLowerCase();
+      const cleanAnswer = (this.chosenWord || '').trim().toLowerCase();
 
+      if (!cleanGuess) {
+        this.feedback = 'Please enter a guess.';
+        return;
+      }
+
+      if (!cleanAnswer) {
+        this.feedback = 'There was a problem loading the word.';
+        return;
+      }
+
+      if (cleanGuess === cleanAnswer) {
+        this.feedback = 'Correct! Nice job!';
+      } else {
+        this.feedback = 'Not quite. Try again!';
+      }
+    },
+  },
 };
 </script>
