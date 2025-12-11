@@ -2,29 +2,73 @@
   <div>
     <h1>Anagram Play Page</h1>
     <p>Word length: {{ wordLength }}</p>
+    <p>Scrambled word: <strong>{{ scrambled }}</strong></p>
   </div>
 </template>
 
 <script>
+import anagramData from '../assets/anagrams.json';
+
 export default {
   name: 'AnagramPlay',
 
   data() {
     return {
         wordLength: null,
+        chosenWord: null,
+        scrambled: null,
     };
   },
 
-  created() {
-    const lengthFromQuery = this.$route.query.length;
+created() {
+  // 1) Read and normalize the word length from the URL
+  const lengthFromQuery = this.$route.query.length;
+  const parsed = Number(lengthFromQuery);
 
-    const parsed = Number(lengthFromQuery);
+  this.wordLength = !Number.isNaN(parsed) ? parsed : 5;
 
-    if (!Number.isNaN(parsed)) {
-        this.wordLength = parsed;
-    } else {
-        this.wordLength = 5; // default value
-    }
+  // 2) Build a map of { length: [words...] } from the raw JSON
+  const lengthMap = {};
+
+  if (Array.isArray(anagramData)) {
+    // anagramData is an array of arrays
+    anagramData.forEach((group) => {
+      if (Array.isArray(group) && group.length > 0) {
+        // assume all words in a group have the same length
+        const len = group[0].length;
+        lengthMap[len] = group;
+      }
+    });
+  } else {
+    // if in the future the JSON is an object keyed by length,
+    // just use it directly
+    Object.assign(lengthMap, anagramData);
   }
+
+  // 3) Get the words for the desired length
+  const wordsForLength = lengthMap[this.wordLength] || [];
+
+  if (!wordsForLength.length) {
+    console.error('No words found for length:', this.wordLength);
+    this.chosenWord = '';
+    this.scrambled = '';
+    return;
+  }
+
+  // 4) Pick a random word from that list
+  const randomIndex = Math.floor(Math.random() * wordsForLength.length);
+  this.chosenWord = wordsForLength[randomIndex];
+
+  // 5) Scramble it (Fisher–Yates shuffle)
+  const chars = this.chosenWord.split('');
+
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+
+  this.scrambled = chars.join('');
+}
+
 };
 </script>
