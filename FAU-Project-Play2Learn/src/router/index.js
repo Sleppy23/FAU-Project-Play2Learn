@@ -16,7 +16,6 @@ const routes = [
     name: 'StartScreen',
     component: StartScreen,
   },
-  // later we will add routes here for Anagram and Math
     {
     path: '/anagram',
     name: 'AnagramStart',
