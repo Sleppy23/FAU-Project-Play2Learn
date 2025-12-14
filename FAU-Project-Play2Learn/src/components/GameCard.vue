@@ -2,7 +2,6 @@
   <div>
     <h2>{{ title }}</h2>
     <p>{{ description }}</p>
-    <!-- here we’ll put a router-link with a button -->
      <router-link :to="to">
        <button>{{ button }}</button>
      </router-link>
