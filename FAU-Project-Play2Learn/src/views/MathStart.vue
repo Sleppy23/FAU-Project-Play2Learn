@@ -1,11 +1,18 @@
 <template>
   <div>
-    <h1>Math Start Page</h1>
+    <h1>Math Facts Practice</h1>
   </div>
 </template>
 
 <script>
 export default {
-  name: 'AnagramStart',
+  name: 'MathStart',
+
+  data() {
+    return {
+      operation: '+',
+      maxNumber: 10,  
+    };
+  },
 };
 </script>
