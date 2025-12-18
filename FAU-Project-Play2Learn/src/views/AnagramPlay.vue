@@ -44,28 +44,29 @@ export default {
 
   data() {
     return {
-
       wordLength: 5,
       chosenWord: '',
       scrambled: '',
-
-      
       playerGuess: '',
       feedback: '',
-
-   
       timeLeft: 60,
       timerId: null,
+
+      groupsForLength: [],
+      currentGroup: [],
+      baseWord: '',
+      guessed: [],
     };
   },
 
   created() {
-  
     const lengthFromQuery = this.$route.query.length;
     const parsed = Number(lengthFromQuery);
     this.wordLength = !Number.isNaN(parsed) ? parsed : 5;
+    this.groupsForLength = anagramData.filter(group => {
+        return Array.isArray(group) && group.length > 0 && group[0].length === this.wordLength;
+    });
 
-   
     const lengthMap = {};
     anagramData.forEach((group) => {
       if (Array.isArray(group) && group.length > 0) {
@@ -74,9 +75,7 @@ export default {
       }
     });
 
-   
     const wordsForLength = lengthMap[this.wordLength] || [];
-
     if (!Array.isArray(wordsForLength) || wordsForLength.length === 0) {
       console.error('No words found for length:', this.wordLength);
       this.feedback = `No words available for length ${this.wordLength}.`;
@@ -86,18 +85,20 @@ export default {
     this.chosenWord = this.pickRandom(wordsForLength);
     this.scrambled = this.scrambleWord(this.chosenWord);
 
-   
+    this.startTimer();
+    this.loadNewGroup();
+    this.startTimer();
+    this.loadNewGroup();
     this.startTimer();
   },
 
   beforeUnmount() {
-
     this.stopTimer();
   },
 
   methods: {
     startTimer() {
-      this.stopTimer(); 
+      this.stopTimer();
 
       this.timerId = setInterval(() => {
         this.timeLeft -= 1;
@@ -106,7 +107,6 @@ export default {
           this.timeLeft = 0;
           this.stopTimer();
 
-         
           this.$router.push({
             name: 'AnagramGameOver',
             query: {
@@ -135,20 +135,40 @@ export default {
       const original = String(word);
       const chars = original.split('');
 
-    
       for (let i = chars.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [chars[i], chars[j]] = [chars[j], chars[i]];
       }
 
       const scrambled = chars.join('');
-
-    
       if (scrambled === original && original.length > 1) {
         return this.scrambleWord(original);
       }
 
       return scrambled;
+    },
+
+    loadNewGroup() {
+        if (!this.groupsForLength.length) {
+        this.feedback = `No anagram groups available for length ${this.wordLength}.`;
+        return;
+    }
+
+        const randomIndex = Math.floor(
+        Math.random() * this.groupsForLength.length
+    );
+        this.currentGroup = this.groupsForLength[randomIndex];
+
+        const baseIndex = Math.floor(
+        Math.random() * this.currentGroup.length
+    );
+        this.baseWord = this.currentGroup[baseIndex];
+
+        this.guessed = [];
+        this.playerGuess = '';
+        this.feedback = '';
+
+        this.scrambled = this.scrambleWord(this.baseWord);
     },
 
     checkGuess() {
@@ -162,10 +182,8 @@ export default {
 
       const isCorrect = cleanGuess === cleanAnswer;
 
-      
       this.stopTimer();
 
-     
       this.$router.push({
         name: 'AnagramGameOver',
         query: {
