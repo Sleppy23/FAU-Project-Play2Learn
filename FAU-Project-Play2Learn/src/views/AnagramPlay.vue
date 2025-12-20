@@ -2,37 +2,65 @@
   <div>
     <h1>Anagram Hunt</h1>
 
-    <p><strong>Time Left:</strong> {{ timeLeft }}</p>
-    <p><strong>Word length:</strong> {{ wordLength }}</p>
-
-    <p>
-      <strong>Scrambled word:</strong>
-      <span style="font-size: 1.25rem;">{{ scrambled }}</span>
-    </p>
-
-    <div style="margin-top: 1rem;">
-      <label>
-        Your guess:
-        <input
-          type="text"
-          v-model="playerGuess"
-          placeholder="Type the word here"
-          @keydown.enter.prevent="checkGuess"
-        />
-      </label>
-
-      <button
-        @click="checkGuess"
-        :disabled="!playerGuess.trim()"
-        style="margin-left: 0.5rem;"
-      >
-        Submit
-      </button>
+    <div
+      style="
+        display: flex;
+        justify-content: center;
+        gap: 4rem;
+        margin-top: 1rem;
+      "
+    >
+      <p><strong>Score:</strong> {{ score }}</p>
+      <p><strong>Time Left:</strong> {{ timeLeft }}</p>
     </div>
 
-    <p v-if="feedback" style="margin-top: 1rem;">
-      {{ feedback }}
-    </p>
+    <div style="margin-top: 1.5rem; text-align: center;">
+      <h2 v-if="baseWord">
+        {{ baseWord }} ({{ anagramsLeft }} left)
+      </h2>
+
+      <p v-if="scrambled">
+        <strong>Scrambled:</strong> {{ scrambled }}
+      </p>
+
+      <div style="margin-top: 1rem;">
+        <label>
+          <strong>Your guess:</strong>
+          <input
+            type="text"
+            v-model="playerGuess"
+            placeholder="type here"
+            @keyup.enter="checkGuess"
+            style="margin-left: 0.5rem;"
+          />
+        </label>
+
+        <button
+          @click="checkGuess"
+          :disabled="!playerGuess.trim()"
+          style="margin-left: 0.75rem;"
+        >
+          Submit
+        </button>
+      </div>
+
+      <p v-if="feedback" style="margin-top: 1rem;">
+        {{ feedback }}
+      </p>
+
+      <ol
+        v-if="guessed.length"
+        style="
+          margin-top: 1.25rem;
+          display: inline-block;
+          text-align: left;
+        "
+      >
+        <li v-for="(word, idx) in guessed" :key="idx">
+          {{ word }}
+        </li>
+      </ol>
+    </div>
   </div>
 </template>
 
@@ -45,49 +73,65 @@ export default {
   data() {
     return {
       wordLength: 5,
-      chosenWord: '',
-      scrambled: '',
-      playerGuess: '',
-      feedback: '',
-      timeLeft: 60,
-      timerId: null,
 
+      // game state
       groupsForLength: [],
+      unusedGroups: [],
       currentGroup: [],
       baseWord: '',
+      scrambled: '',
+
       guessed: [],
+      playerGuess: '',
+      feedback: '',
+      score: 0,
+
+      // timer
+      timeLeft: 60,
+      timerId: null,
     };
   },
 
-  created() {
-    const lengthFromQuery = this.$route.query.length;
-    const parsed = Number(lengthFromQuery);
-    this.wordLength = !Number.isNaN(parsed) ? parsed : 5;
-    this.groupsForLength = anagramData.filter(group => {
-        return Array.isArray(group) && group.length > 0 && group[0].length === this.wordLength;
-    });
-
-    const lengthMap = {};
-    anagramData.forEach((group) => {
-      if (Array.isArray(group) && group.length > 0) {
-        const len = group[0].length;
-        lengthMap[len] = group;
+  computed: {
+    anagramsLeft() {
+      if (!this.currentGroup.length || !this.baseWord) {
+        return 0;
       }
-    });
 
-    const wordsForLength = lengthMap[this.wordLength] || [];
-    if (!Array.isArray(wordsForLength) || wordsForLength.length === 0) {
-      console.error('No words found for length:', this.wordLength);
-      this.feedback = `No words available for length ${this.wordLength}.`;
+      const base = this.baseWord.toLowerCase();
+      const guessedSet = new Set(
+        this.guessed.map((g) => g.toLowerCase())
+      );
+
+      return this.currentGroup.filter((w) => {
+        const lw = String(w).toLowerCase();
+        return lw !== base && !guessedSet.has(lw);
+      }).length;
+    },
+  },
+
+  created() {
+    const parsed = Number(this.$route.query.length);
+    this.wordLength = !Number.isNaN(parsed) ? parsed : 5;
+
+    if (Array.isArray(anagramData)) {
+      this.groupsForLength = anagramData.filter(
+        (group) =>
+          Array.isArray(group) &&
+          group.length &&
+          group[0].length === this.wordLength
+      );
+    } else {
+      this.groupsForLength = anagramData[this.wordLength] || [];
+    }
+
+    this.unusedGroups = [...this.groupsForLength];
+
+    if (!this.unusedGroups.length) {
+      this.feedback = `No anagram groups available for length ${this.wordLength}.`;
       return;
     }
 
-    this.chosenWord = this.pickRandom(wordsForLength);
-    this.scrambled = this.scrambleWord(this.chosenWord);
-
-    this.startTimer();
-    this.loadNewGroup();
-    this.startTimer();
     this.loadNewGroup();
     this.startTimer();
   },
@@ -97,6 +141,7 @@ export default {
   },
 
   methods: {
+    // ---- Timer ----
     startTimer() {
       this.stopTimer();
 
@@ -106,15 +151,7 @@ export default {
         if (this.timeLeft <= 0) {
           this.timeLeft = 0;
           this.stopTimer();
-
-          this.$router.push({
-            name: 'AnagramGameOver',
-            query: {
-              result: 'lose',
-              answer: this.chosenWord,
-              length: this.wordLength,
-            },
-          });
+          this.endGame('time');
         }
       }, 1000);
     },
@@ -126,72 +163,93 @@ export default {
       }
     },
 
+    // ---- Game flow ----
+    endGame(result) {
+      this.$router.push({
+        name: 'AnagramGameOver',
+        query: {
+          result,
+          score: this.score,
+          length: this.wordLength,
+        },
+      });
+    },
+
     pickRandom(list) {
       const idx = Math.floor(Math.random() * list.length);
       return list[idx];
     },
 
     scrambleWord(word) {
-      const original = String(word);
-      const chars = original.split('');
+      const chars = String(word).split('');
 
       for (let i = chars.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [chars[i], chars[j]] = [chars[j], chars[i]];
       }
 
-      const scrambled = chars.join('');
-      if (scrambled === original && original.length > 1) {
-        return this.scrambleWord(original);
-      }
-
-      return scrambled;
+      return chars.join('');
     },
 
     loadNewGroup() {
-        if (!this.groupsForLength.length) {
-        this.feedback = `No anagram groups available for length ${this.wordLength}.`;
-        return;
-    }
-
-        const randomIndex = Math.floor(
-        Math.random() * this.groupsForLength.length
-    );
-        this.currentGroup = this.groupsForLength[randomIndex];
-
-        const baseIndex = Math.floor(
-        Math.random() * this.currentGroup.length
-    );
-        this.baseWord = this.currentGroup[baseIndex];
-
-        this.guessed = [];
-        this.playerGuess = '';
-        this.feedback = '';
-
-        this.scrambled = this.scrambleWord(this.baseWord);
-    },
-
-    checkGuess() {
-      const cleanGuess = this.playerGuess.trim().toLowerCase();
-      const cleanAnswer = (this.chosenWord || '').trim().toLowerCase();
-
-      if (!cleanGuess) {
-        this.feedback = 'Please enter a guess.';
+      if (!this.unusedGroups.length) {
+        this.endGame('complete');
         return;
       }
 
-      const isCorrect = cleanGuess === cleanAnswer;
+      const group = this.pickRandom(this.unusedGroups);
+      this.unusedGroups = this.unusedGroups.filter((g) => g !== group);
 
-      this.stopTimer();
+      this.currentGroup = group;
+      this.baseWord = this.pickRandom(this.currentGroup);
 
-      this.$router.push({
-        name: 'AnagramGameOver',
-        query: {
-          result: isCorrect ? 'win' : 'lose',
-          answer: this.chosenWord,
-          length: this.wordLength,
-        },
-      });
+      this.guessed = [];
+      this.playerGuess = '';
+      this.feedback = '';
+
+      this.scrambled = this.scrambleWord(this.baseWord);
+    },
+
+    checkGuess() {
+      const guess = this.playerGuess.trim().toLowerCase();
+      if (!guess) return;
+
+      const base = String(this.baseWord).toLowerCase();
+      const groupLower = this.currentGroup.map((w) =>
+        String(w).toLowerCase()
+      );
+
+      if (guess === base) {
+        this.feedback =
+          "That’s the base word—guess one of its anagrams.";
+        this.playerGuess = '';
+        return;
+      }
+
+      const alreadyGuessed = this.guessed.some(
+        (g) => g.toLowerCase() === guess
+      );
+      if (alreadyGuessed) {
+        this.feedback = 'You already guessed that one.';
+        this.playerGuess = '';
+        return;
+      }
+
+      if (!groupLower.includes(guess)) {
+        this.feedback = 'Not in this anagram set. Try again.';
+        return;
+      }
+
+      // Correct guess
+      this.guessed.push(guess);
+      this.score += 1;
+      this.feedback = 'Nice!';
+      this.playerGuess = '';
+
+      if (this.anagramsLeft === 0) {
+        this.feedback = 'Great! Next word...';
+        setTimeout(() => this.loadNewGroup(), 600);
+      }
     },
   },
 };

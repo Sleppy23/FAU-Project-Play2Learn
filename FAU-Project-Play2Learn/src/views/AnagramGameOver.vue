@@ -1,15 +1,23 @@
 <template>
-  <div>
-    <h1>Anagram Game Over</h1>
+  <div class="game-over">
+    <h1>Anagram Hunt</h1>
 
-    <p v-if="isWin">🎉 You got it!</p>
-    <p v-else>Nice try! You'll get it next time.</p>
+    <h2 v-if="isWin">Time's Up!</h2>
+    <h2 v-else>Nice try!</h2>
 
-    <p>The word was: <strong>{{ answer }}</strong></p>
+    <p>You got</p>
+    <h1>{{ score }}</h1>
+    <p>Anagrams</p>
+
+    <p v-if="answer">
+      The word was: <strong>{{ answer }}</strong>
+    </p>
 
     <div style="margin-top: 1.5rem;">
-      <button @click="playAgain">Play again</button>
-      <button @click="goHome" style="margin-left: 0.5rem;">Back to home</button>
+      <button @click="playAgain">Play Again</button>
+      <button @click="goHome" style="margin-left: 0.5rem;">
+        Back to Start Screen
+      </button>
     </div>
   </div>
 </template>
@@ -21,7 +29,9 @@ export default {
   data() {
     return {
       result: this.$route.query.result || 'lose',
+      score: Number(this.$route.query.score) || 0,
       answer: this.$route.query.answer || '',
+      length: Number(this.$route.query.length) || 5,
     };
   },
 
@@ -31,13 +41,13 @@ export default {
     },
   },
 
-methods: {
-  playAgain() {
-    this.$router.push({ name: 'AnagramStart' });
+  methods: {
+    playAgain() {
+      this.$router.push({ name: 'AnagramStart' });
+    },
+    goHome() {
+      this.$router.push('/');
+    },
   },
-  goHome() {
-    this.$router.push('/');
-  },
-},
 };
 </script>
